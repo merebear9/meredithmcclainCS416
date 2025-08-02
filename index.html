@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Horsepower vs Fuel‑Efficiency — Narrative Visualization</title>
-  <!-- Load D3 first -->
-  <script src="https://d3js.org/d3.v7.min.js" defer></script>
-  <!-- Correct CDN path for d3-annotation (the package root already serves the UMD build) -->
-  <script src="https://unpkg.com/d3-annotation@2.5.1/dist/d3-annotation.min.js" defer></script>
+  <title>Horsepower vs Fuel-Efficiency — Narrative Visualization</title>
+
+  <!-- Load libraries synchronously so they’re available to the inline code below -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/d3-annotation@2.5.1/dist/d3-annotation.min.js"></script>
+
   <style>
     html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:#fafafa;}
     #vis{width:100%;height:100%;}
@@ -25,105 +26,183 @@
   <button id="next">Next &rarr;</button>
 </div>
 
-<script defer>
+<script>
 // -------------------- CONFIG --------------------
-// Host the CSV in the same repo to avoid CORS hiccups on some browsers
-const DATA_URL = "./cars.csv"; // make sure cars.csv is committed to the repo root
+const DATA_URL = "./cars.json";   // ensure this file exists alongside index.html
 
 const width = 960,
       height = 600,
-      margin = {top: 60, right: 40, bottom: 60, left: 60};
-const highlightThreshold = 35; // mpg considered very efficient
+      margin = {top: 60, right: 40, bottom: 60, left: 60},
+      highlightThreshold = 35;
 
 const svg = d3.select("#vis").append("svg")
   .attr("viewBox", [0, 0, width, height])
   .attr("preserveAspectRatio", "xMidYMid meet");
 
-let x, y; // scales
+let x, y;
 let sceneIndex = 0;
 const scenes = [sceneOverview, sceneHighlightEfficient, sceneExplore];
 
 // -------------------- LOAD DATA --------------------
-d3.csv(DATA_URL, d => ({
+d3.json(DATA_URL, d => ({
   mpg: +d.Miles_per_Gallon,
-  hp: +d.Horsepower,
+  hp:  +d.Horsepower,
   name: d.Name,
   origin: d.Origin
 })).then(data => {
   data = data.filter(d => d.mpg && d.hp);
   buildStaticChart(data);
   renderScene();
-  
-  // buttons
+
   d3.select("#next").on("click", () => {
-    if (sceneIndex < scenes.length - 1) {sceneIndex++; renderScene();}
+    if (sceneIndex < scenes.length - 1) { sceneIndex++; renderScene(); }
   });
   d3.select("#prev").on("click", () => {
-    if (sceneIndex > 0) {sceneIndex--; renderScene();}
+    if (sceneIndex > 0) { sceneIndex--; renderScene(); }
   });
-}).catch(err => console.error("CSV load error", err));
+}).catch(err => console.error("Json load error:", err));
 
 // -------------------- BUILD CHART --------------------
-function buildStaticChart(data){
-  x = d3.scaleLinear().domain(d3.extent(data, d=>d.hp)).nice().range([margin.left, width-margin.right]);
-  y = d3.scaleLinear().domain(d3.extent(data, d=>d.mpg)).nice().range([height-margin.bottom, margin.top]);
-  
-  svg.append("g").attr("class","x-axis").attr("transform",`translate(0,${height-margin.bottom})`).call(d3.axisBottom(x));
-  svg.append("g").attr("class","y-axis").attr("transform",`translate(${margin.left},0)`).call(d3.axisLeft(y));
-  svg.append("text").attr("class","x-label").attr("x",width/2).attr("y",height-15).attr("text-anchor","middle").text("Horsepower");
-  svg.append("text").attr("class","y-label").attr("transform","rotate(-90)").attr("x",-height/2).attr("y",20).attr("text-anchor","middle").text("Miles per Gallon");
-  
-  svg.append("g").attr("class","points")
+function buildStaticChart(data) {
+  x = d3.scaleLinear().domain(d3.extent(data, d => d.hp)).nice()
+      .range([margin.left, width - margin.right]);
+  y = d3.scaleLinear().domain(d3.extent(data, d => d.mpg)).nice()
+      .range([height - margin.bottom, margin.top]);
+
+  svg.append("g")
+     .attr("class", "x-axis")
+     .attr("transform", `translate(0,${height - margin.bottom})`)
+     .call(d3.axisBottom(x));
+
+  svg.append("g")
+     .attr("class", "y-axis")
+     .attr("transform", `translate(${margin.left},0)`)
+     .call(d3.axisLeft(y));
+
+  svg.append("text")
+     .attr("class", "x-label")
+     .attr("x", width / 2)
+     .attr("y", height - 15)
+     .attr("text-anchor", "middle")
+     .text("Horsepower");
+
+  svg.append("text")
+     .attr("class", "y-label")
+     .attr("transform", "rotate(-90)")
+     .attr("x", -height / 2)
+     .attr("y", 20)
+     .attr("text-anchor", "middle")
+     .text("Miles per Gallon");
+
+  svg.append("g").attr("class", "points")
     .selectAll("circle").data(data).enter().append("circle")
-      .attr("cx", d=>x(d.hp))
-      .attr("cy", d=>y(d.mpg))
-      .attr("r",4).attr("fill","#69b3a2").attr("opacity",0.8);
+      .attr("cx", d => x(d.hp))
+      .attr("cy", d => y(d.mpg))
+      .attr("r", 4)
+      .attr("fill", "#69b3a2")
+      .attr("opacity", 0.8);
 }
 
-// -------------------- SCENE RENDER --------------------
-function renderScene(){
-  d3.select("#prev").attr("disabled", sceneIndex===0?true:null);
-  d3.select("#next").attr("disabled", sceneIndex===scenes.length-1?true:null);
+// -------------------- RENDERER --------------------
+function renderScene() {
+  d3.select("#prev").attr("disabled", sceneIndex === 0 ? true : null);
+  d3.select("#next").attr("disabled", sceneIndex === scenes.length - 1 ? true : null);
   scenes[sceneIndex]();
 }
 
-function clearAnnotations(){
+function clearAnnotations() {
   svg.selectAll(".annotation-group").remove();
   svg.selectAll(".scene-title").remove();
   d3.selectAll(".tooltip").remove();
 }
 
 // -------------------- SCENES --------------------
-function sceneOverview(){
+function sceneOverview() {
   clearAnnotations();
-  svg.append("text").attr("class","scene-title").attr("x",margin.left).attr("y",margin.top-20).text("How Horsepower Impacts Fuel Efficiency (1970‑82 Cars)");
-  svg.selectAll(".points circle").transition().duration(500).attr("fill","#69b3a2").attr("opacity",0.8).attr("r",4);
-  
-  const annData=[{note:{title:"Inverse Relationship",label:"Higher HP tends to lower MPG"},x:x(200),y:y(15),dx:-110,dy:-80}];
-  svg.append("g").attr("class","annotation-group").call(d3.annotation().type(d3.annotationLabel).annotations(annData));
+
+  svg.append("text")
+     .attr("class", "scene-title")
+     .attr("x", margin.left)
+     .attr("y", margin.top - 20)
+     .text("How Horsepower Impacts Fuel Efficiency (1970-82 Cars)");
+
+  svg.selectAll(".points circle")
+     .transition().duration(500)
+     .attr("fill", "#69b3a2")
+     .attr("opacity", 0.8)
+     .attr("r", 4);
+
+  const ann = [{
+    note: { title: "Inverse Relationship",
+            label: "Higher HP tends to lower MPG" },
+    x: x(200),
+    y: y(15),
+    dx: -110,
+    dy: -80
+  }];
+
+  svg.append("g")
+     .attr("class", "annotation-group")
+     .call(d3.annotation().type(d3.annotationLabel).annotations(ann));
 }
 
-function sceneHighlightEfficient(){
+function sceneHighlightEfficient() {
   clearAnnotations();
-  svg.append("text").attr("class","scene-title").attr("x",margin.left).attr("y",margin.top-20).text(`Stand‑out Models (> ${highlightThreshold} MPG)`);
+
+  svg.append("text")
+     .attr("class", "scene-title")
+     .attr("x", margin.left)
+     .attr("y", margin.top - 20)
+     .text(`Stand-out Models (> ${highlightThreshold} MPG)`);
+
   svg.selectAll(".points circle")
-    .transition().duration(500)
-    .attr("fill", d=>d.mpg>highlightThreshold?"#d62728":"#ccc")
-    .attr("opacity", d=>d.mpg>highlightThreshold?1:0.3)
-    .attr("r", d=>d.mpg>highlightThreshold?6:3);
-  const ann=[{note:{title:"Efficiency Champs",label:"A few cars beat 35 MPG."},x:x(70),y:y(40),dx:-90,dy:-60}];
-  svg.append("g").attr("class","annotation-group").call(d3.annotation().type(d3.annotationLabel).annotations(ann));
+     .transition().duration(500)
+     .attr("fill", d => d.mpg > highlightThreshold ? "#d62728" : "#ccc")
+     .attr("opacity", d => d.mpg > highlightThreshold ? 1 : 0.3)
+     .attr("r", d => d.mpg > highlightThreshold ? 6 : 3);
+
+  const ann = [{
+    note: { title: "Efficiency Champs",
+            label: "A few cars beat 35 MPG." },
+    x: x(70),
+    y: y(40),
+    dx: -90,
+    dy: -60
+  }];
+
+  svg.append("g")
+     .attr("class", "annotation-group")
+     .call(d3.annotation().type(d3.annotationLabel).annotations(ann));
 }
 
-function sceneExplore(){
+function sceneExplore() {
   clearAnnotations();
-  svg.append("text").attr("class","scene-title").attr("x",margin.left).attr("y",margin.top-20).text("Explore — Hover for Details");
-  svg.selectAll(".points circle").transition().duration(500).attr("fill","#69b3a2").attr("opacity",0.8).attr("r",4);
-  const tooltip=d3.select("body").append("div").attr("class","tooltip");
+
+  svg.append("text")
+     .attr("class", "scene-title")
+     .attr("x", margin.left)
+     .attr("y", margin.top - 20)
+     .text("Explore — Hover for Details");
+
   svg.selectAll(".points circle")
-    .on("mouseover",(e,d)=>{tooltip.style("opacity",1).html(`<strong>${d.name}</strong><br>MPG: ${d.mpg}<br>HP: ${d.hp}`)})
-    .on("mousemove",e=>tooltip.style("left",e.pageX+15+"px").style("top",e.pageY+"px"))
-    .on("mouseout",()=>tooltip.style("opacity",0));
+     .transition().duration(500)
+     .attr("fill", "#69b3a2")
+     .attr("opacity", 0.8)
+     .attr("r", 4);
+
+  const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip");
+
+  svg.selectAll(".points circle")
+    .on("mouseover", (event, d) => {
+      tooltip.style("opacity", 1)
+             .html(`<strong>${d.name}</strong><br>MPG: ${d.mpg}<br>HP: ${d.hp}`);
+    })
+    .on("mousemove", event => {
+      tooltip.style("left", event.pageX + 15 + "px")
+             .style("top", event.pageY + "px");
+    })
+    .on("mouseout", () => tooltip.style("opacity", 0));
 }
 </script>
 </body>
